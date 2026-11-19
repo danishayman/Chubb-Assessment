@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { inject, Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
-  ClaimDetail, ClaimStatus, ClaimSummary, Exposure, Market, NotificationList, Policy, Problem, Staff, SubmitClaim, Workload,
+  Attachment, ClaimDetail, ClaimStatus, ClaimSummary, Exposure, Market, NotificationList, Policy, Problem, Staff, SubmitClaim, Workload,
 } from './models';
 
 export interface ClaimFilter {
@@ -30,6 +30,16 @@ export class ApiService {
   submit(body: SubmitClaim) { return this.post<ClaimDetail>('/api/claims', body); }
   respond(id: string, requestId: string, response: string) {
     return this.post<ClaimDetail>(`/api/claims/${id}/info-requests/${requestId}/response`, { response });
+  }
+
+  uploadAttachment(id: string, file: File, informationRequestId?: string) {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    if (informationRequestId) form.append('informationRequestId', informationRequestId);
+    return this.post<Attachment>(`/api/claims/${id}/attachments`, form);
+  }
+  downloadAttachment(id: string, attachmentId: string) {
+    return firstValueFrom(this.http.get(`/api/claims/${id}/attachments/${attachmentId}`, { responseType: 'blob' }));
   }
 
   assign(id: string, officerId?: string) { return this.post<ClaimDetail>(`/api/claims/${id}/assign`, { officerId: officerId ?? null }); }

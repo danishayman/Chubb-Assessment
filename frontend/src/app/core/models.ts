@@ -24,6 +24,9 @@ export interface InfoRequest {
   id: string; question: string; requestedAt: string; response: string | null; respondedAt: string | null;
   status: 'Open' | 'Answered';
 }
+export interface Attachment {
+  id: string; fileName: string; contentType: string; sizeBytes: number; uploadedAt: string; informationRequestId: string | null;
+}
 export interface Note { id: string; authorName: string; text: string; createdAt: string; }
 export interface Activity { at: string; actor: string; action: string; detail: string; }
 
@@ -34,6 +37,7 @@ export interface ClaimDetail {
   coverageLimit: number; excess: number; maxPayable: number | null;
   allowedNextStatuses: ClaimStatus[];
   informationRequests: InfoRequest[];
+  attachments: Attachment[];
   notes: Note[] | null;
   timeline: Activity[];
 }

@@ -7,15 +7,18 @@ import { AuthService } from '../../core/auth.service';
 import { ClaimDetail, Staff } from '../../core/models';
 import { NotificationsService } from '../../core/notifications.service';
 import { money } from '../../shared/format';
+import { AttachmentList } from '../../shared/attachment-list';
+import { Icon } from '../../shared/icon';
+import { Skeleton } from '../../shared/skeleton';
 import { StatusBadge } from '../../shared/status-badge';
 import { Timeline } from '../../shared/timeline';
 
 @Component({
   selector: 'app-staff-claim',
-  imports: [RouterLink, DatePipe, FormsModule, StatusBadge, Timeline],
+  imports: [RouterLink, DatePipe, FormsModule, StatusBadge, Timeline, AttachmentList, Icon, Skeleton],
   template: `
-    <a class="back" routerLink="/queue">← Work queue</a>
-    @if (error()) { <div class="error">{{ error() }}</div> }
+    <a class="back" routerLink="/queue"><app-icon name="back" [size]="16" /> Work queue</a>
+    @if (error()) { <div class="error" role="alert">{{ error() }}</div> }
 
     @if (claim(); as c) {
       <div class="page-head">
@@ -53,10 +56,18 @@ import { Timeline } from '../../shared/timeline';
                   <div><strong>Q:</strong> {{ r.question }} <span class="muted small">· {{ r.requestedAt | date: 'd MMM, HH:mm' }}</span></div>
                   @if (r.response) { <div><strong>A:</strong> {{ r.response }} <span class="muted small">· {{ r.respondedAt | date: 'd MMM, HH:mm' }}</span></div> }
                   @else { <div class="muted">Waiting for the claimant…</div> }
+                  @if (docsFor(r.id).length) {
+                    <div class="qa-files"><app-icon name="paperclip" [size]="14" /> {{ docsFor(r.id).length }} document{{ docsFor(r.id).length > 1 ? 's' : '' }} attached</div>
+                  }
                 </div>
               }
             </section>
           }
+
+          <section class="card">
+            <h2>Documents <span class="count">{{ c.attachments.length }}</span></h2>
+            <app-attachment-list [claimId]="c.summary.id" [items]="c.attachments" emptyText="The claimant hasn't uploaded any documents." />
+          </section>
 
           <section class="card">
             <h2>Internal notes</h2>
@@ -134,13 +145,26 @@ import { Timeline } from '../../shared/timeline';
               }
 
               <div class="action stack">
-                <input placeholder="Reason for rejection" [(ngModel)]="rejectReason" />
-                <button class="btn danger" [disabled]="!rejectReason.trim() || busy()" (click)="confirmReject()">Reject claim</button>
+                <label>Reject
+                  <input placeholder="Reason, shown to the claimant" [(ngModel)]="rejectReason" [disabled]="confirmingReject()" />
+                </label>
+                @if (!confirmingReject()) {
+                  <button class="btn danger" [disabled]="!rejectReason.trim() || busy()" (click)="confirmingReject.set(true)">Reject claim</button>
+                } @else {
+                  <p class="small">This closes the claim and notifies the claimant. It can't be undone.</p>
+                  <div class="actions">
+                    <button class="btn ghost small" [disabled]="busy()" (click)="confirmingReject.set(false)">Keep open</button>
+                    <button class="btn danger-solid small" [disabled]="busy()" (click)="reject()">Yes, reject claim</button>
+                  </div>
+                }
               </div>
             }
           }
         </aside>
       </div>
+    } @else if (!error()) {
+      <div class="card"><app-skeleton [rows]="2" [height]="22" /></div>
+      <div class="grid-main"><div class="card"><app-skeleton [rows]="8" /></div><div class="card"><app-skeleton [rows]="5" /></div></div>
     }
   `,
 })
@@ -163,6 +187,8 @@ export class StaffClaim {
   protected approveReason = '';
   protected rejectReason = '';
   protected assignTo = '';
+
+  protected confirmingReject = signal(false);
 
   protected cur = computed(() => this.claim()?.summary.currency ?? '');
   protected mine = computed(() => this.claim()?.summary.assignedOfficerId === this.auth.user()?.id);
@@ -207,9 +233,12 @@ export class StaffClaim {
     }
   }
 
-  protected confirmReject(): void {
-    if (confirm('Reject this claim? The claimant will be notified and the claim will be closed.')) {
-      this.run(this.api.reject(this.id(), this.rejectReason));
-    }
+  protected docsFor(requestId: string) {
+    return this.claim()?.attachments.filter(a => a.informationRequestId === requestId) ?? [];
+  }
+
+  protected async reject(): Promise<void> {
+    await this.run(this.api.reject(this.id(), this.rejectReason));
+    this.confirmingReject.set(false);
   }
 }
