@@ -2,7 +2,7 @@
 
 Tool: Claude Code (desktop app), one long session. I gave the direction and the AI wrote most of the code.
 Each entry records what I asked, what the AI did, and what I decided.
-Entries marked **[review]** are calls the AI made by itself. I still need to accept or override them.
+Some entries are calls the AI made by itself. For each one I've noted whether I **accepted**, **challenged** (kept it but flagged a gap) or **overrode** it.
 
 ---
 
@@ -20,27 +20,27 @@ Entries marked **[review]** are calls the AI made by itself. I still need to acc
 ## 2. Domain model
 - **Asked:** build the domain first (entities, status flow) with tests.
 - **AI did:** wrote a `Claim` aggregate that owns its state machine, info requests, notes, an audit trail and domain events. Behaviour sits on the entity instead of in services.
-- **[review] Initial reserve.** The AI sets the reserve at submission to claimed amount minus excess, capped at the limit. Exposure is then visible from day one instead of after an officer picks the claim up. The trade-off is that claimants could inflate early exposure figures.
-- **[review] Officer authority.** Only the assigned officer can approve, reject, settle, set the reserve or request info. A manager reassigns rather than acting directly.
-- **[review] Audit trail is synchronous.** The plan had the timeline built by an event consumer. The AI changed this so audit entries are written in the same transaction as the change. Reason: an audit trail that can lag or be lost is not an audit trail. Notifications stay event-driven.
-- **[review] AwaitingInformation → Rejected allowed.** The AI added this after noticing that otherwise a claimant who never replies leaves the claim stuck forever.
-- **[review] No total exposure across markets.** Six markets means six currencies, so exposure is grouped by market and currency. There is no FX table, so a single total would be wrong.
-- **[review] Single Kafka topic.** The AI plans one `claims.events` topic keyed by claim id, not one topic per event type. Kafka only orders messages within a partition, so this keeps every claim's events in order.
+- **Initial reserve.** The AI sets the reserve at submission to claimed amount minus excess, capped at the limit. Exposure is then visible from day one instead of after an officer picks the claim up. The trade-off is that claimants could inflate early exposure figures. **Accepted.** Managers need an exposure figure from day one more than a perfect one. The officer corrects an inflated reserve at review.
+- **Officer authority.** Only the assigned officer can approve, reject, settle, set the reserve or request info. A manager reassigns rather than acting directly. **Overridden.** A manager covering for an absent officer, or handling an escalation, shouldn't have to reassign the claim first. Managers can now take every action on any assigned claim. The claim stays with its officer, and the audit trail shows the manager acted. Managers still can't act on an unassigned claim, so every claim has an owner. See section 11.
+- **Audit trail is synchronous.** The plan had the timeline built by an event consumer. The AI changed this so audit entries are written in the same transaction as the change. Reason: an audit trail that can lag or be lost is not an audit trail. Notifications stay event-driven. **Accepted.** The audit trail must never be missing an entry, but a late notification does no harm.
+- **AwaitingInformation → Rejected allowed.** The AI added this after noticing that otherwise a claimant who never replies leaves the claim stuck forever. **Accepted.** Without it, a claim stays open forever if the claimant goes silent.
+- **No total exposure across markets.** Six markets means six currencies, so exposure is grouped by market and currency. There is no FX table, so a single total would be wrong. **Accepted.** Adding SGD to IDR gives a meaningless number. FX conversion is in the README as a next step.
+- **Single Kafka topic.** The AI plans one `claims.events` topic keyed by claim id, not one topic per event type. Kafka only orders messages within a partition, so this keeps every claim's events in order. **Accepted.** Keeping each claim's events in order matters more than separate topics, and consumers can filter by event type.
 
 ## 3. Persistence and auth
 - **AI did:** EF Core with SQLite, migrations applied on startup, and seed data covering every status so each screen has something on it. JWT auth with seeded users and PBKDF2 password hashing.
 - **Bugs found while running it:**
   - The outbox code changed the change-tracker collection while iterating over it, which crashed startup. Fixed with `.ToList()`.
   - SQLite returns `DateTime` without a UTC kind, so Angular would have shown local times shifted. Fixed with a UTC value converter.
-- **[review] Child entity keys.** Keys are generated in the domain and configured `ValueGeneratedNever`. Otherwise EF treats new info requests and notes on a loaded claim as updates, not inserts.
+- **Child entity keys.** Keys are generated in the domain and configured `ValueGeneratedNever`. Otherwise EF treats new info requests and notes on a loaded claim as updates, not inserts. **Accepted.** It keeps ids in the domain and fixed a real bug where new notes were saved as updates.
 
 ## 4. Claims API
 - **AI did:** minimal API endpoints. Each action loads the aggregate, calls one domain method and saves. Errors map to ProblemDetails:
   - validation → 400
   - wrong officer → 403
   - wrong state or concurrent edit → 409
-- **[review] Separate claimant and staff views.** Claimants and staff get the same DTO shape, but claimants get nulls for reserve, notes and max payable. Staff names show as "Claims team" to claimants.
-- **[review] 404 for other people's claims.** A claimant asking for someone else's claim gets 404, not 403, so the API doesn't confirm the claim exists.
+- **Separate claimant and staff views.** Claimants and staff get the same DTO shape, but claimants get nulls for reserve, notes and max payable. Staff names show as "Claims team" to claimants. **Accepted.** One DTO keeps the contract simple, and an API test checks that claimants get nulls for the internal fields.
+- **404 for other people's claims.** A claimant asking for someone else's claim gets 404, not 403, so the API doesn't confirm the claim exists. **Accepted.** It doesn't confirm which claims exist.
 - **Checked:** a smoke script drove the full flow over HTTP (submit → assign → info → respond → approve → settle) plus the negative cases. All behaved as expected.
 
 ## 5. Events
@@ -51,13 +51,13 @@ Entries marked **[review]** are calls the AI made by itself. I still need to acc
   - two handlers: notifications, and a payment handoff stub
 - **Checked:** with `Provider=Kafka` and no broker, the API stays up and the events stay in the outbox with the error recorded. That is the outbox doing its job.
 - **Not verified:** the Kafka path has not run against a real broker (no Docker on this PC).
-- **[review] One consumer group runs all handlers.** In production each downstream service would have its own group.
-- **[review] Dead letters.** A message that keeps failing is logged and skipped. The intended fix, a dead-letter topic, is noted but not built.
+- **One consumer group runs all handlers.** In production each downstream service would have its own group. **Accepted for now.** That's fine while there's one deployable. Each handler gets its own group when it becomes its own service.
+- **Dead letters.** A message that keeps failing is logged and skipped. The intended fix, a dead-letter topic, is noted but not built. **Accepted as a known gap.** It's listed in the README, and a dead-letter topic is the first thing I'd add before production.
 
 ## 6. Dashboards
 - **AI did:** a workload endpoint (by status, ageing, per officer) and an exposure endpoint (by market and type).
 - **AI caught its own mistake:** the first version of "largest open claims" ranked raw amounts across currencies, which would put an IDR claim above an SGD one. It changed this to the top 3 per market.
-- **[review] In-memory aggregation.** It's fine for the demo; the scaling path is noted in the README.
+- **In-memory aggregation.** It's fine for the demo; the scaling path is noted in the README. **Accepted.** The demo data is small, and the README describes how it would change at volume.
 
 ## 7. Frontend
 - **AI did:** Angular 21 with standalone components, signals and lazy routes. Separate claimant and staff areas use role guards, a JWT interceptor, and notification polling that refreshes open pages.
@@ -77,12 +77,12 @@ Entries marked **[review]** are calls the AI made by itself. I still need to acc
   - multipart upload and authenticated download endpoints
   - local file storage behind `IFileStore`
   - an `attachment-added` event that notifies the assigned officer
-- **[review] Type is decided by content.** The AI checks the file's first bytes and requires the extension to match, instead of trusting the browser's Content-Type or the file name. The tests include an `.exe` renamed to `.pdf`.
-- **[review] Safe storage and download.** Files are stored under generated ids, never the user's file name. Downloads are served as `attachment` with `nosniff`.
-- **[review] Limits.** 10 MB per file, 20 per claim, and PDF/JPG/PNG/WEBP only. Only the claimant can upload; staff can download.
-- **[review] Order of operations.** Domain checks run before any bytes are written. If the database save fails, the stored file is deleted.
-- **[review] Antiforgery is off for the upload endpoint.** Auth is a bearer token, not a cookie, so there's no CSRF risk.
-- **[review] Replies with only a file.** A claimant can answer a request with just files; the UI fills in "I've attached N documents: …" as the text. Files upload one at a time, and each leaves the list once it's stored, so retrying after a failure doesn't create duplicates.
+- **Type is decided by content.** The AI checks the file's first bytes and requires the extension to match, instead of trusting the browser's Content-Type or the file name. The tests include an `.exe` renamed to `.pdf`. **Accepted.** Content-Type and the file name are both set by the user, so neither can be trusted.
+- **Safe storage and download.** Files are stored under generated ids, never the user's file name. Downloads are served as `attachment` with `nosniff`. **Accepted.** A crafted file name can't change where the file is stored, and the browser never renders an upload inline.
+- **Limits.** 10 MB per file, 20 per claim, and PDF/JPG/PNG/WEBP only. Only the claimant can upload; staff can download. **Challenged.** I kept the limits, but staff uploads are a real gap: officers have nowhere to keep assessor reports and repair invoices in the system. That's the next thing I'd add, and it's in the README.
+- **Order of operations.** Domain checks run before any bytes are written. If the database save fails, the stored file is deleted. **Accepted.** A rejected upload never leaves a file on disk, and a failed save doesn't leave a stray one.
+- **Antiforgery is off for the upload endpoint.** Auth is a bearer token, not a cookie, so there's no CSRF risk. **Accepted.** The token travels in the Authorization header, which a cross-site form can't set.
+- **Replies with only a file.** A claimant can answer a request with just files; the UI fills in "I've attached N documents: …" as the text. Files upload one at a time, and each leaves the list once it's stored, so retrying after a failure doesn't create duplicates. **Accepted.** "Here's the police report" is often the whole answer, so typing text shouldn't be required.
 - **Environment:** my own API was running and locking the Debug build, so the AI built, generated the migration and ran the tests in Release instead of stopping it.
 
 ## 10. UI pass
@@ -99,3 +99,12 @@ Entries marked **[review]** are calls the AI made by itself. I still need to acc
 - **Report form:** sections for policy, incident and documents, with a "What happens next" panel beside them.
 - **Dashboard:** the four big-number cards became one summary strip with context, such as how old the oldest unassigned claim is.
 - **Checked in the browser** at desktop and phone width: submitting with files (a `.txt` was rejected on the client), replying with just a file, the officer view and download, and the notification panel. No console errors and no horizontal scroll on phone. On phone, claim numbers in the queue were breaking across four lines, so the table now scrolls inside its card.
+
+## 11. Reviewing the AI's calls
+- **Asked:** go through every call the AI made by itself, so I either accept or change each one.
+- **Overrode manager authority.** The AI had managers only reassigning claims. I changed it so a manager can act on any assigned claim directly. The AI then:
+  - added the manager check in the domain, with the claim keeping its owner
+  - passed the caller's role from the endpoints
+  - showed the action panel to managers, with a note saying whose claim it is
+  - added a domain test and an API test. Another officer still gets 403, and the history shows the manager's name.
+- **Checked in the browser:** signed in as the manager and changed the reserve on another officer's claim. The claim stayed with that officer, and the history shows the manager's name.
