@@ -198,6 +198,45 @@ public class ClaimTests
         Assert.Equal(["InformationProvided", "StatusChanged"], actions);
     }
 
+    [Fact]
+    public void Claimant_can_attach_a_document_to_an_information_request()
+    {
+        var claim = AssignedClaim();
+        var q = claim.RequestInformation(Officer, "Police report?", Now);
+
+        var doc = claim.AddAttachment(Claimant, "report.pdf", "application/pdf", 50_000, q.Id, Now);
+
+        Assert.Equal(q.Id, doc.InformationRequestId);
+        Assert.StartsWith(claim.Id.ToString("N"), doc.StorageKey);
+        Assert.Contains(claim.DomainEvents.OfType<AttachmentAdded>(), e => e.OfficerId == Officer);
+    }
+
+    [Fact]
+    public void Attachment_rules_are_enforced()
+    {
+        var claim = AssignedClaim();
+
+        Assert.Equal(DomainErrorKind.Forbidden,
+            Assert.Throws<DomainException>(() => claim.AddAttachment(Officer, "a.pdf", "application/pdf", 10, null, Now)).Kind);
+        Assert.Throws<DomainException>(() => claim.AddAttachment(Claimant, "a.pdf", "application/pdf", Claim.MaxAttachmentBytes + 1, null, Now));
+        Assert.Throws<DomainException>(() => claim.AddAttachment(Claimant, "a.pdf", "application/pdf", 0, null, Now));
+        Assert.Throws<DomainException>(() => claim.AddAttachment(Claimant, "a.pdf", "application/pdf", 10, Guid.NewGuid(), Now));
+
+        for (var i = 0; i < Claim.MaxAttachmentsPerClaim; i++)
+            claim.AddAttachment(Claimant, $"{i}.pdf", "application/pdf", 10, null, Now);
+        Assert.Throws<DomainException>(() => claim.AddAttachment(Claimant, "one-more.pdf", "application/pdf", 10, null, Now));
+    }
+
+    [Fact]
+    public void Cannot_attach_to_a_closed_claim()
+    {
+        var claim = AssignedClaim();
+        claim.Reject(Officer, "Not covered", Now);
+
+        Assert.Equal(DomainErrorKind.Conflict,
+            Assert.Throws<DomainException>(() => claim.AddAttachment(Claimant, "a.pdf", "application/pdf", 10, null, Now)).Kind);
+    }
+
     [Theory]
     [InlineData(ClaimStatus.Submitted, ClaimStatus.Approved)]
     [InlineData(ClaimStatus.Submitted, ClaimStatus.Settled)]

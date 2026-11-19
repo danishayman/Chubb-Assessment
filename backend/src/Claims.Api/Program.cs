@@ -12,6 +12,7 @@ builder.Services.AddDbContext<ClaimsDbContext>(o =>
     o.UseSqlite(builder.Configuration.GetConnectionString("Claims")));
 builder.Services.AddClaimsAuth(builder.Configuration);
 builder.Services.AddMessaging(builder.Configuration);
+builder.Services.AddSingleton<IFileStore, LocalFileStore>();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
 builder.Services.ConfigureHttpJsonOptions(o =>
@@ -37,6 +38,7 @@ app.UseSwaggerUI(o => o.SwaggerEndpoint("/openapi/v1.json", "Claims API"));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapAuth();
 app.MapClaims();
+app.MapAttachments();
 app.MapNotifications();
 app.MapDashboard();
 

@@ -57,6 +57,50 @@ namespace Claims.Api.Data.Migrations
                     b.ToTable("OutboxMessages");
                 });
 
+            modelBuilder.Entity("Claims.Domain.Attachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("InformationRequestId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UploadedBy")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaimId");
+
+                    b.HasIndex("InformationRequestId");
+
+                    b.ToTable("Attachments");
+                });
+
             modelBuilder.Entity("Claims.Domain.Claim", b =>
                 {
                     b.Property<Guid>("Id")
@@ -360,6 +404,20 @@ namespace Claims.Api.Data.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("Claims.Domain.Attachment", b =>
+                {
+                    b.HasOne("Claims.Domain.Claim", null)
+                        .WithMany("Attachments")
+                        .HasForeignKey("ClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Claims.Domain.InformationRequest", null)
+                        .WithMany()
+                        .HasForeignKey("InformationRequestId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("Claims.Domain.Claim", b =>
                 {
                     b.HasOne("Claims.Domain.User", null)
@@ -419,6 +477,8 @@ namespace Claims.Api.Data.Migrations
             modelBuilder.Entity("Claims.Domain.Claim", b =>
                 {
                     b.Navigation("Activities");
+
+                    b.Navigation("Attachments");
 
                     b.Navigation("InformationRequests");
 

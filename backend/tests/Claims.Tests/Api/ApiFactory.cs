@@ -18,6 +18,7 @@ public class ApiFactory : WebApplicationFactory<Program>
 
     private readonly string _connectionString = $"DataSource=file:claims-{Guid.NewGuid():N}?mode=memory&cache=shared";
     private readonly SqliteConnection _keepAlive;
+    private readonly string _uploads = Path.Combine(Path.GetTempPath(), $"claims-uploads-{Guid.NewGuid():N}");
 
     public ApiFactory()
     {
@@ -33,6 +34,7 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Key", "integration-test-signing-key-0123456789abcdef");
         builder.UseSetting("Messaging:Provider", "InMemory");
         builder.UseSetting("Messaging:OutboxPollMs", "50");
+        builder.UseSetting("Attachments:Path", _uploads);
     }
 
     public async Task<HttpClient> LoginAs(string email)
@@ -48,6 +50,10 @@ public class ApiFactory : WebApplicationFactory<Program>
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        if (disposing) _keepAlive.Dispose();
+        if (disposing)
+        {
+            _keepAlive.Dispose();
+            if (Directory.Exists(_uploads)) Directory.Delete(_uploads, recursive: true);
+        }
     }
 }

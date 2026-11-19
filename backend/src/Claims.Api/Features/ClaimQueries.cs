@@ -43,6 +43,7 @@ public static class ClaimQueries
             .Include(c => c.InformationRequests)
             .Include(c => c.Notes)
             .Include(c => c.Activities)
+            .Include(c => c.Attachments)
             .AsSplitQuery()
             .SingleOrDefaultAsync(c => c.Id == id);
 
@@ -78,6 +79,8 @@ public static class ClaimQueries
             Enum.GetValues<ClaimStatus>().Where(s => ClaimWorkflow.CanTransition(claim.Status, s)).ToList(),
             claim.InformationRequests.OrderBy(r => r.RequestedAt)
                 .Select(r => new InfoRequestDto(r.Id, r.Question, r.RequestedAt, r.Response, r.RespondedAt, r.Status)).ToList(),
+            claim.Attachments.OrderBy(a => a.UploadedAt)
+                .Select(a => new AttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes, a.UploadedAt, a.InformationRequestId)).ToList(),
             staff
                 ? claim.Notes.OrderByDescending(n => n.CreatedAt)
                     .Select(n => new NoteDto(n.Id, ActorName(n.AuthorId), n.Text, n.CreatedAt)).ToList()

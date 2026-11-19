@@ -7,6 +7,7 @@ public class Claim
     private readonly List<InformationRequest> _infoRequests = [];
     private readonly List<ClaimNote> _notes = [];
     private readonly List<ClaimActivity> _activities = [];
+    private readonly List<Attachment> _attachments = [];
     private readonly List<DomainEvent> _events = [];
     // One operation can log several entries with the same timestamp (e.g. "info provided" then "status changed").
     // Nudging each by a tick keeps them in the order they happened when read back.
@@ -44,6 +45,7 @@ public class Claim
     public IReadOnlyList<InformationRequest> InformationRequests => _infoRequests;
     public IReadOnlyList<ClaimNote> Notes => _notes;
     public IReadOnlyList<ClaimActivity> Activities => _activities;
+    public IReadOnlyList<Attachment> Attachments => _attachments;
     public IReadOnlyList<DomainEvent> DomainEvents => _events;
 
     public bool IsOpen => ClaimWorkflow.IsOpen(Status);
@@ -202,6 +204,40 @@ public class Claim
         ReserveAmount = 0;
         ClosedAt = now;
         Raise(new ClaimSettled { ClaimId = Id, ClaimNumber = ClaimNumber, ClaimantId = ClaimantId, OccurredAt = now, Amount = SettledAmount!.Value, Currency = Currency });
+    }
+
+    public const long MaxAttachmentBytes = 10 * 1024 * 1024;
+    public const int MaxAttachmentsPerClaim = 20;
+
+    /// <summary>
+    /// Claimant adds supporting evidence, optionally in answer to a specific information request.
+    /// The caller must load <see cref="Attachments"/> so the per-claim limit can be checked.
+    /// </summary>
+    public Attachment AddAttachment(Guid claimantId, string fileName, string contentType, long sizeBytes,
+        Guid? informationRequestId, DateTime now)
+    {
+        if (claimantId != ClaimantId)
+            throw DomainException.Forbidden("Only the claimant can add documents to this claim.");
+        EnsureOpen();
+        if (sizeBytes <= 0)
+            throw new DomainException("The file is empty.");
+        if (sizeBytes > MaxAttachmentBytes)
+            throw new DomainException($"Files must be {MaxAttachmentBytes / 1024 / 1024} MB or smaller.");
+        if (_attachments.Count >= MaxAttachmentsPerClaim)
+            throw new DomainException($"A claim can have at most {MaxAttachmentsPerClaim} documents.");
+        if (informationRequestId is { } rid && _infoRequests.All(r => r.Id != rid))
+            throw new DomainException("Information request not found.");
+
+        var attachment = new Attachment(Id, informationRequestId, claimantId, fileName, contentType, sizeBytes, now);
+        _attachments.Add(attachment);
+        Log(claimantId, "AttachmentAdded", $"Document added: {fileName}", true, now);
+        Raise(new AttachmentAdded
+        {
+            ClaimId = Id, ClaimNumber = ClaimNumber, ClaimantId = ClaimantId, OccurredAt = now,
+            AttachmentId = attachment.Id, FileName = fileName, OfficerId = AssignedOfficerId,
+        });
+        Touch(now);
+        return attachment;
     }
 
     public ClaimNote AddNote(Guid authorId, string text, DateTime now)

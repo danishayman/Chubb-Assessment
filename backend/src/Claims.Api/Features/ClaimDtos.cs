@@ -23,6 +23,7 @@ public record ClaimSummaryDto(
     Guid? AssignedOfficerId, string? AssignedOfficerName, string ClaimantName, int OpenInfoRequests);
 
 public record InfoRequestDto(Guid Id, string Question, DateTime RequestedAt, string? Response, DateTime? RespondedAt, InfoRequestStatus Status);
+public record AttachmentDto(Guid Id, string FileName, string ContentType, long SizeBytes, DateTime UploadedAt, Guid? InformationRequestId);
 public record NoteDto(Guid Id, string AuthorName, string Text, DateTime CreatedAt);
 public record ActivityDto(DateTime At, string Actor, string Action, string Detail);
 
@@ -33,6 +34,7 @@ public record ClaimDetailDto(
     decimal CoverageLimit, decimal Excess, decimal? MaxPayable,
     IReadOnlyList<ClaimStatus> AllowedNextStatuses,
     IReadOnlyList<InfoRequestDto> InformationRequests,
+    IReadOnlyList<AttachmentDto> Attachments,
     IReadOnlyList<NoteDto>? Notes,
     IReadOnlyList<ActivityDto> Timeline);
 

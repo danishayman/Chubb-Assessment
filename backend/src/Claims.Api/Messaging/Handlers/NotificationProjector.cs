@@ -22,6 +22,7 @@ public class NotificationProjector(ClaimsDbContext db) : IEventHandler
             ClaimSettled s => (s.ClaimantId, $"Your claim {s.ClaimNumber} has been settled. Payment of {s.Currency} {s.Amount:N2} is on its way."),
             InformationRequested s => (s.ClaimantId, $"We need more information for claim {s.ClaimNumber}: {s.Question}"),
             InformationProvided { OfficerId: { } officer } s => (officer, $"The claimant responded to your request on {s.ClaimNumber}."),
+            AttachmentAdded { OfficerId: { } officer } s => (officer, $"The claimant added a document to {s.ClaimNumber}: {s.FileName}"),
             _ => (Guid.Empty, ""),
         };
         if (userId == Guid.Empty) return;

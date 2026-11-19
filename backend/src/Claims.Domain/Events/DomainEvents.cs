@@ -10,6 +10,7 @@ namespace Claims.Domain.Events;
 [JsonDerivedType(typeof(InformationProvided), "claim.info-provided")]
 [JsonDerivedType(typeof(ReserveChanged), "claim.reserve-changed")]
 [JsonDerivedType(typeof(ClaimSettled), "claim.settled")]
+[JsonDerivedType(typeof(AttachmentAdded), "claim.attachment-added")]
 public abstract record DomainEvent
 {
     public Guid EventId { get; init; } = Guid.NewGuid();
@@ -61,4 +62,11 @@ public record ClaimSettled : DomainEvent
 {
     public required decimal Amount { get; init; }
     public required string Currency { get; init; }
+}
+
+public record AttachmentAdded : DomainEvent
+{
+    public required Guid AttachmentId { get; init; }
+    public required string FileName { get; init; }
+    public Guid? OfficerId { get; init; }
 }

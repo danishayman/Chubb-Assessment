@@ -18,6 +18,7 @@ public class ClaimsDbContext(DbContextOptions<ClaimsDbContext> options) : DbCont
     public DbSet<InformationRequest> InformationRequests => Set<InformationRequest>();
     public DbSet<ClaimNote> ClaimNotes => Set<ClaimNote>();
     public DbSet<ClaimActivity> ClaimActivities => Set<ClaimActivity>();
+    public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
@@ -73,6 +74,8 @@ public class ClaimsDbContext(DbContextOptions<ClaimsDbContext> options) : DbCont
             e.Navigation(x => x.InformationRequests).HasField("_infoRequests");
             e.Navigation(x => x.Notes).HasField("_notes");
             e.Navigation(x => x.Activities).HasField("_activities");
+            e.HasMany(x => x.Attachments).WithOne().HasForeignKey(x => x.ClaimId);
+            e.Navigation(x => x.Attachments).HasField("_attachments");
         });
 
         // Child keys are set in the domain, so EF must treat new children found on a loaded claim as inserts.
@@ -82,6 +85,17 @@ public class ClaimsDbContext(DbContextOptions<ClaimsDbContext> options) : DbCont
         {
             e.Property(x => x.Id).ValueGeneratedNever();
             e.HasIndex(x => new { x.ClaimId, x.At });
+        });
+
+        b.Entity<Attachment>(e =>
+        {
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.FileName).HasMaxLength(255);
+            e.Property(x => x.ContentType).HasMaxLength(100);
+            e.Property(x => x.StorageKey).HasMaxLength(100);
+            e.HasIndex(x => x.ClaimId);
+            e.HasOne<InformationRequest>().WithMany().HasForeignKey(x => x.InformationRequestId)
+                .IsRequired(false).OnDelete(DeleteBehavior.Restrict);
         });
 
         b.Entity<Notification>(e =>
