@@ -31,8 +31,8 @@ type Tab = 'unassigned' | 'me' | 'all';
         @for (m of markets; track m) { <option [value]="m">{{ m }}</option> }
       </select>
       <input placeholder="Search claim number" [(ngModel)]="search" (keyup.enter)="load()" />
-      <label class="small" style="flex-direction: row; align-items: center; gap: 6px">
-        <input type="checkbox" style="width: auto" [(ngModel)]="includeClosed" (ngModelChange)="load()" /> Include closed
+      <label class="check small">
+        <input type="checkbox" [(ngModel)]="includeClosed" (ngModelChange)="load()" /> Include closed
       </label>
     </div>
 

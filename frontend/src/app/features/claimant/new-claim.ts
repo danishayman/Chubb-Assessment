@@ -57,7 +57,7 @@ export class NewClaim {
   protected form = this.fb.nonNullable.group({
     policyId: ['', Validators.required],
     incidentDate: [this.today, Validators.required],
-    claimedAmount: [0, [Validators.required, Validators.min(1)]],
+    claimedAmount: [null as number | null, [Validators.required, Validators.min(1)]],
     location: ['', [Validators.required, Validators.maxLength(300)]],
     description: ['', [Validators.required, Validators.maxLength(4000)]],
   });
@@ -78,7 +78,8 @@ export class NewClaim {
     this.busy.set(true);
     this.error.set('');
     try {
-      const claim = await this.api.submit(this.form.getRawValue());
+      const v = this.form.getRawValue();
+      const claim = await this.api.submit({ ...v, claimedAmount: v.claimedAmount ?? 0 });
       this.router.navigate(['/my-claims', claim.summary.id]);
     } catch (e) {
       this.error.set(errorMessage(e));
