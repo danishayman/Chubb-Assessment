@@ -33,6 +33,7 @@ app.UseAuthorization();
 app.MapOpenApi();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapAuth();
+app.MapClaims();
 
 app.Run();
 
