@@ -10,6 +10,7 @@ export const routes: Routes = [
 
   { path: 'queue', canActivate: [staffGuard], loadComponent: () => import('./features/staff/queue').then(m => m.Queue) },
   { path: 'claims/:id', canActivate: [staffGuard], loadComponent: () => import('./features/staff/staff-claim').then(m => m.StaffClaim) },
+  { path: 'dashboard', canActivate: [staffGuard], loadComponent: () => import('./features/staff/dashboard').then(m => m.Dashboard) },
 
   { path: '', pathMatch: 'full', redirectTo: 'login' },
   { path: '**', redirectTo: 'login' },
