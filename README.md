@@ -1,7 +1,7 @@
 # Claims Platform
 
 A claims platform for motor and property claims across six APAC markets.
-- **Claimants** report an incident, track their claim, answer requests for more information and see the decision.
+- **Claimants** report an incident, track their claim, answer requests for more information (with photos, reports or receipts attached) and see the decision.
 - **Claims staff** pick up claims, set reserves, ask for information, approve or reject, and settle. They also see team workload and outstanding liability.
 
 Built for the YGP full-stack take-home. Most of the time went into the backend, as the brief asks.
@@ -21,7 +21,7 @@ npm install
 npm start
 ```
 
-The API creates `claims.db` (SQLite), applies migrations and seeds demo data on first start. Delete the file to reset.
+The API creates `claims.db` (SQLite), applies migrations and seeds demo data on first start. Uploaded documents go in `uploads/` next to it. Delete both to reset.
 
 Keep both terminals running. If the login page says it cannot reach the API, the backend isn't running on port 5177.
 
@@ -36,7 +36,7 @@ Keep both terminals running. If the login page says it cannot reach the API, the
 | Priya Nair | priya@chubb.test | Claims officer |
 | Sarah Chen | sarah@chubb.test | Manager (can reassign) |
 
-**Tests:** `cd backend && dotnet test`. This runs 30 tests: domain rules, plus API integration tests against in-memory SQLite.
+**Tests:** `cd backend && dotnet test`. This runs 39 tests: domain rules, plus API integration tests against in-memory SQLite (including file uploads).
 
 ### Using real Kafka (optional)
 
@@ -97,6 +97,7 @@ Core entities:
 - `Policy`: holder, type, market, currency, limit, excess, period
 - `Claim`: the aggregate root
 - `InformationRequest`
+- `Attachment`: a document the claimant sent, optionally linked to the request it answers
 - `ClaimNote` (internal only)
 - `ClaimActivity` (audit trail)
 - `Notification`
@@ -129,6 +130,16 @@ Exposure is the sum of **reserves on open claims** (Submitted through Approved).
 
 Exposure is reported **per market and currency**. Six markets means six currencies, and there's no FX source, so a grand total would be misleading. The same goes for "largest claims", which are ranked within each market.
 
+### Documents
+
+Claimants can attach PDF, JPG, PNG or WEBP files when they report an incident, when they answer an information request, or at any point while the claim is open. Staff can download them from the claim workbench, and the assigned officer gets a notification for each new document.
+
+- **The file's own bytes decide its type.** The browser's Content-Type and the file name are both controlled by the user, so the server reads the first bytes (the "magic number"). It rejects the file unless they match an allowed type *and* the extension agrees. An executable renamed to `.pdf` is refused.
+- **Stored under a generated key.** Each file is saved under a generated `claim/attachment` id and never under the user's file name, so a crafted name can't escape the storage folder. Downloads are sent as `attachment` with `nosniff`, so the browser never renders them inline.
+- **The domain checks run before any bytes are written:** only the claimant, only while the claim is open, at most 10 MB per file and 20 per claim. If the database save fails, the stored file is deleted again.
+- **Storage sits behind `IFileStore`.** It's local disk here; in production it would be blob storage plus a virus scan before the file is made available.
+- **Uploads are multipart REST, not Kafka.** The claimant waits for the result and needs an immediate error if the file is rejected. The `attachment-added` event that follows goes through the outbox like every other event.
+
 ### What claimants and staff see
 
 Claimants only see their own claims; anything else returns 404, not 403, so the API doesn't reveal which claims exist. They never see:
@@ -139,7 +150,7 @@ Claimants only see their own claims; anything else returns 404, not 403, so the 
 
 ### What a claims officer gets
 - A work queue (unassigned / mine / all) with status, market and search filters. Age is highlighted after 14 days.
-- A claim workbench showing limit, excess and max payable next to the reserve, with the available actions for the current state, internal notes and the full audit trail.
+- A claim workbench showing limit, excess and max payable next to the reserve, the claimant's documents (linked to the request they answer), the available actions for the current state, internal notes and the full audit trail.
 - A team dashboard:
   - open claims by status
   - ageing buckets
@@ -148,7 +159,8 @@ Claimants only see their own claims; anything else returns 404, not 403, so the 
 
 ## What I left out, and what I'd do next
 
-- **Document uploads.** Claimants answer in text. Next would be blob storage plus a virus scan, with a reference stored on the info request.
+- **Virus scanning and blob storage** for uploaded documents. They're on local disk and only type-checked today.
+- **Staff uploads** (assessor reports, repair invoices). Only claimants upload today.
 - **Real identity.** The demo uses local users with JWT. In production this would be the corporate IdP (OIDC) for staff and a customer identity provider for claimants.
 - **FX and reporting currency** for a single group-wide exposure number.
 - **Dashboards at scale.** These aggregate in memory, which is fine for the demo. At volume they'd become SQL aggregates or a read model fed by the same events.

@@ -69,3 +69,33 @@ Entries marked **[review]** are calls the AI made by itself. I still need to acc
 
 ## 8. Docs
 - **AI did:** wrote the README covering run steps, architecture decisions, the REST/Kafka split, and what was left out.
+
+## 9. Document uploads
+- **Asked:** add attachments, so claimants can send the police report and receipts an officer asks for.
+- **AI did:**
+  - an `Attachment` entity owned by the claim, plus a migration
+  - multipart upload and authenticated download endpoints
+  - local file storage behind `IFileStore`
+  - an `attachment-added` event that notifies the assigned officer
+- **[review] Type is decided by content.** The AI checks the file's first bytes and requires the extension to match, instead of trusting the browser's Content-Type or the file name. The tests include an `.exe` renamed to `.pdf`.
+- **[review] Safe storage and download.** Files are stored under generated ids, never the user's file name. Downloads are served as `attachment` with `nosniff`.
+- **[review] Limits.** 10 MB per file, 20 per claim, and PDF/JPG/PNG/WEBP only. Only the claimant can upload; staff can download.
+- **[review] Order of operations.** Domain checks run before any bytes are written. If the database save fails, the stored file is deleted.
+- **[review] Antiforgery is off for the upload endpoint.** Auth is a bearer token, not a cookie, so there's no CSRF risk.
+- **[review] Replies with only a file.** A claimant can answer a request with just files; the UI fills in "I've attached N documents: …" as the text. Files upload one at a time, and each leaves the list once it's stored, so retrying after a failure doesn't create duplicates.
+- **Environment:** my own API was running and locking the Debug build, so the AI built, generated the migration and ran the tests in Release instead of stopping it.
+
+## 10. UI pass
+- **Asked:** improve the overall UI. I also sent a screenshot showing the description box dragged wider than its card.
+- **AI did:** kept the existing look (navy bar, blue accent, system font) and fixed what it found by using the app:
+  - the textarea overflow (resize is vertical only now)
+  - no loading states (pages were blank until data arrived; they show skeletons now)
+  - no hover or focus styles on buttons
+  - an emoji bell and text arrows used as icons (replaced with one SVG icon set)
+  - the notifications panel didn't close on outside click or Escape
+  - queue rows that only opened with a mouse (claim numbers are links now)
+  - a browser `confirm()` for rejecting a claim (now an inline two-step confirm)
+  - empty states that didn't say what to do next
+- **Report form:** sections for policy, incident and documents, with a "What happens next" panel beside them.
+- **Dashboard:** the four big-number cards became one summary strip with context, such as how old the oldest unassigned claim is.
+- **Checked in the browser** at desktop and phone width: submitting with files (a `.txt` was rejected on the client), replying with just a file, the officer view and download, and the notification panel. No console errors and no horizontal scroll on phone. On phone, claim numbers in the queue were breaking across four lines, so the table now scrolls inside its card.
