@@ -2,6 +2,7 @@ using Claims.Api.Auth;
 using Claims.Api.Data;
 using Claims.Api.Features;
 using Claims.Api.Infrastructure;
+using Claims.Api.Messaging;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +11,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<ClaimsDbContext>(o =>
     o.UseSqlite(builder.Configuration.GetConnectionString("Claims")));
 builder.Services.AddClaimsAuth(builder.Configuration);
+builder.Services.AddMessaging(builder.Configuration);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
 builder.Services.ConfigureHttpJsonOptions(o =>

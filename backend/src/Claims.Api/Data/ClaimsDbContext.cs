@@ -7,7 +7,10 @@ namespace Claims.Api.Data;
 
 public class ClaimsDbContext(DbContextOptions<ClaimsDbContext> options) : DbContext(options)
 {
-    public static readonly JsonSerializerOptions EventJson = new(JsonSerializerDefaults.Web);
+    public static readonly JsonSerializerOptions EventJson = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+    };
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Policy> Policies => Set<Policy>();
