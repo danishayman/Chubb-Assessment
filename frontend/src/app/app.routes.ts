@@ -8,6 +8,8 @@ export const routes: Routes = [
   { path: 'my-claims/new', canActivate: [claimantGuard], loadComponent: () => import('./features/claimant/new-claim').then(m => m.NewClaim) },
   { path: 'my-claims/:id', canActivate: [claimantGuard], loadComponent: () => import('./features/claimant/claim-view').then(m => m.ClaimView) },
 
+  { path: 'queue', canActivate: [staffGuard], loadComponent: () => import('./features/staff/queue').then(m => m.Queue) },
+  { path: 'claims/:id', canActivate: [staffGuard], loadComponent: () => import('./features/staff/staff-claim').then(m => m.StaffClaim) },
 
   { path: '', pathMatch: 'full', redirectTo: 'login' },
   { path: '**', redirectTo: 'login' },
