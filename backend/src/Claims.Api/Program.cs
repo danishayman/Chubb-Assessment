@@ -16,7 +16,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
-builder.Services.AddOpenApi();
+builder.Services.AddClaimsOpenApi();
 
 var app = builder.Build();
 
@@ -33,6 +33,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapOpenApi();
+app.UseSwaggerUI(o => o.SwaggerEndpoint("/openapi/v1.json", "Claims API"));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapAuth();
 app.MapClaims();
