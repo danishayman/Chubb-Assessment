@@ -187,6 +187,17 @@ public class ClaimTests
         Assert.Equal(9_000m, claim.ReserveAmount);
     }
 
+    [Fact]
+    public void Activities_from_one_operation_keep_their_order()
+    {
+        var claim = AssignedClaim();
+        var q = claim.RequestInformation(Officer, "Police report?", Now);
+        claim.ProvideInformation(Claimant, q.Id, "Attached", Now);
+
+        var actions = claim.Activities.OrderBy(a => a.At).Select(a => a.Action).TakeLast(2).ToList();
+        Assert.Equal(["InformationProvided", "StatusChanged"], actions);
+    }
+
     [Theory]
     [InlineData(ClaimStatus.Submitted, ClaimStatus.Approved)]
     [InlineData(ClaimStatus.Submitted, ClaimStatus.Settled)]

@@ -8,6 +8,9 @@ public class Claim
     private readonly List<ClaimNote> _notes = [];
     private readonly List<ClaimActivity> _activities = [];
     private readonly List<DomainEvent> _events = [];
+    // One operation can log several entries with the same timestamp (e.g. "info provided" then "status changed").
+    // Nudging each by a tick keeps them in the order they happened when read back.
+    private int _logSequence;
 
     private Claim() { }
 
@@ -241,7 +244,7 @@ public class Claim
     private void Touch(DateTime now) => UpdatedAt = now;
 
     private void Log(Guid actorId, string action, string detail, bool visibleToClaimant, DateTime now) =>
-        _activities.Add(new ClaimActivity(Id, actorId, action, detail, visibleToClaimant, now));
+        _activities.Add(new ClaimActivity(Id, actorId, action, detail, visibleToClaimant, now.AddTicks(_logSequence++)));
 
     private void Raise(DomainEvent e) => _events.Add(e);
 }
