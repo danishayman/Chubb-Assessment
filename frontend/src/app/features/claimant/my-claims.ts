@@ -5,11 +5,12 @@ import { ApiService, errorMessage } from '../../core/api.service';
 import { ClaimSummary } from '../../core/models';
 import { NotificationsService } from '../../core/notifications.service';
 import { money } from '../../shared/format';
+import { Skeleton } from '../../shared/skeleton';
 import { StatusBadge } from '../../shared/status-badge';
 
 @Component({
   selector: 'app-my-claims',
-  imports: [RouterLink, DatePipe, StatusBadge],
+  imports: [RouterLink, DatePipe, StatusBadge, Skeleton],
   template: `
     <div class="page-head">
       <h1>My claims</h1>
@@ -18,6 +19,9 @@ import { StatusBadge } from '../../shared/status-badge';
 
     @if (error()) { <div class="error">{{ error() }}</div> }
 
+    @if (loading()) {
+      @for (i of [1, 2, 3]; track i) { <div class="card"><app-skeleton [rows]="2" /></div> }
+    }
     @for (c of claims(); track c.id) {
       <a class="card claim-card" [routerLink]="['/my-claims', c.id]">
         <div class="claim-card-main">
@@ -28,13 +32,14 @@ import { StatusBadge } from '../../shared/status-badge';
           <app-status [status]="c.status" />
         </div>
         @if (c.openInfoRequests > 0) {
-          <div class="action-needed">Action needed: we've asked you for more information.</div>
+          <div class="action-needed">We need more information from you. Open the claim to reply.</div>
         }
       </a>
     } @empty {
       @if (!loading()) {
         <div class="card empty">
-          <p>You haven't reported any claims yet.</p>
+          <h2>No claims yet</h2>
+          <p class="muted">If something has happened to your car or home, report it here and track it through to payment.</p>
           <a class="btn primary" routerLink="/my-claims/new">Report an incident</a>
         </div>
       }

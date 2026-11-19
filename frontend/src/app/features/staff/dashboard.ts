@@ -4,25 +4,33 @@ import { ApiService, errorMessage } from '../../core/api.service';
 import { Exposure, Workload } from '../../core/models';
 import { NotificationsService } from '../../core/notifications.service';
 import { money, STATUS_LABELS } from '../../shared/format';
+import { Skeleton } from '../../shared/skeleton';
 import { StatusBadge } from '../../shared/status-badge';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [StatusBadge],
+  imports: [StatusBadge, Skeleton],
   template: `
     <div class="page-head">
       <h1>Team dashboard</h1>
-      <button class="btn small" (click)="load()">Refresh</button>
+      <button class="btn small ghost" (click)="load()" [disabled]="loading()">{{ loading() ? 'Refreshing…' : 'Refresh' }}</button>
     </div>
-    @if (error()) { <div class="error">{{ error() }}</div> }
+    @if (error()) { <div class="error" role="alert">{{ error() }}</div> }
+
+    @if (!workload() && !error()) {
+      <div class="card"><app-skeleton [rows]="1" [height]="40" /></div>
+      <div class="grid-2"><div class="card"><app-skeleton [rows]="4" /></div><div class="card"><app-skeleton [rows]="4" /></div></div>
+    }
 
     @if (workload(); as w) {
-      <div class="kpis">
-        <div class="kpi"><div class="kpi-value">{{ w.openClaims }}</div><div class="kpi-label">Open claims</div></div>
-        <div class="kpi"><div class="kpi-value">{{ w.unassigned }}</div><div class="kpi-label">Waiting to be picked up</div></div>
-        <div class="kpi"><div class="kpi-value" [class.old]="w.oldestUnassignedDays > 2">{{ w.oldestUnassignedDays }}d</div><div class="kpi-label">Oldest unassigned</div></div>
-        <div class="kpi"><div class="kpi-value">{{ awaiting() }}</div><div class="kpi-label">Waiting on claimants</div></div>
-      </div>
+      <dl class="summary card">
+        <div><dt>Open claims</dt><dd>{{ w.openClaims }}</dd></div>
+        <div><dt>Waiting to be picked up</dt><dd>{{ w.unassigned }}
+          @if (w.unassigned) { <span class="muted small">oldest <span [class.old]="w.oldestUnassignedDays > 2">{{ w.oldestUnassignedDays }}d</span></span> }
+        </dd></div>
+        <div><dt>Waiting on claimants</dt><dd>{{ awaiting() }}</dd></div>
+        <div><dt>Older than 30 days</dt><dd [class.old]="over30() > 0">{{ over30() }}</dd></div>
+      </dl>
 
       <div class="grid-2">
         <section class="card">
@@ -121,6 +129,8 @@ export class Dashboard {
   protected labels = STATUS_LABELS;
   protected money = money;
 
+  protected loading = signal(false);
+  protected over30 = computed(() => this.workload()?.ageing.find(b => b.label.startsWith('30'))?.count ?? 0);
   protected awaiting = computed(() => this.workload()?.byStatus.find(s => s.status === 'AwaitingInformation')?.count ?? 0);
 
   constructor() {
@@ -131,6 +141,7 @@ export class Dashboard {
   }
 
   protected async load(): Promise<void> {
+    this.loading.set(true);
     try {
       const [w, e] = await Promise.all([this.api.workload(), this.api.exposure()]);
       this.workload.set(w);
@@ -138,6 +149,8 @@ export class Dashboard {
       this.error.set('');
     } catch (err) {
       this.error.set(errorMessage(err));
+    } finally {
+      this.loading.set(false);
     }
   }
 

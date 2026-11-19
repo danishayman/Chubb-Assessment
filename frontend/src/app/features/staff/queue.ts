@@ -1,36 +1,37 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ApiService, ClaimFilter, errorMessage } from '../../core/api.service';
 import { ClaimStatus, ClaimSummary, Market } from '../../core/models';
 import { NotificationsService } from '../../core/notifications.service';
 import { ALL_STATUSES, MARKETS, money, STATUS_LABELS } from '../../shared/format';
+import { Skeleton } from '../../shared/skeleton';
 import { StatusBadge } from '../../shared/status-badge';
 
 type Tab = 'unassigned' | 'me' | 'all';
 
 @Component({
   selector: 'app-queue',
-  imports: [FormsModule, StatusBadge],
+  imports: [FormsModule, RouterLink, StatusBadge, Skeleton],
   template: `
     <div class="page-head"><h1>Work queue</h1></div>
 
-    <div class="tabs">
-      <button [class.active]="tab() === 'unassigned'" (click)="setTab('unassigned')">Unassigned</button>
-      <button [class.active]="tab() === 'me'" (click)="setTab('me')">My claims</button>
-      <button [class.active]="tab() === 'all'" (click)="setTab('all')">All claims</button>
+    <div class="tabs" role="tablist">
+      <button role="tab" [attr.aria-selected]="tab() === 'unassigned'" [class.active]="tab() === 'unassigned'" (click)="setTab('unassigned')">Unassigned</button>
+      <button role="tab" [attr.aria-selected]="tab() === 'me'" [class.active]="tab() === 'me'" (click)="setTab('me')">My claims</button>
+      <button role="tab" [attr.aria-selected]="tab() === 'all'" [class.active]="tab() === 'all'" (click)="setTab('all')">All claims</button>
     </div>
 
     <div class="filters">
-      <select [(ngModel)]="status" (ngModelChange)="load()">
+      <select aria-label="Status" [(ngModel)]="status" (ngModelChange)="load()">
         <option value="">Any status</option>
         @for (s of statuses; track s) { <option [value]="s">{{ labels[s] }}</option> }
       </select>
-      <select [(ngModel)]="market" (ngModelChange)="load()">
+      <select aria-label="Market" [(ngModel)]="market" (ngModelChange)="load()">
         <option value="">All markets</option>
         @for (m of markets; track m) { <option [value]="m">{{ m }}</option> }
       </select>
-      <input placeholder="Search claim number" [(ngModel)]="search" (keyup.enter)="load()" />
+      <input type="search" aria-label="Search claim number" placeholder="Search claim number" [(ngModel)]="search" (keyup.enter)="load()" (search)="load()" />
       <label class="check small">
         <input type="checkbox" [(ngModel)]="includeClosed" (ngModelChange)="load()" /> Include closed
       </label>
@@ -49,7 +50,7 @@ type Tab = 'unassigned' | 'me' | 'all';
         <tbody>
           @for (c of claims(); track c.id) {
             <tr class="clickable" (click)="open(c)">
-              <td><strong>{{ c.claimNumber }}</strong></td>
+              <td><a class="row-link" [routerLink]="['/claims', c.id]" (click)="$event.stopPropagation()">{{ c.claimNumber }}</a></td>
               <td>{{ c.claimantName }}</td>
               <td>{{ c.type }} · {{ c.market }}</td>
               <td><app-status [status]="c.status" /> @if (c.openInfoRequests) { <span class="muted small">({{ c.openInfoRequests }} open)</span> }</td>
@@ -64,7 +65,11 @@ type Tab = 'unassigned' | 'me' | 'all';
               </td>
             </tr>
           } @empty {
-            <tr><td colspan="9" class="muted">{{ loading() ? 'Loading…' : 'No claims match.' }}</td></tr>
+            @if (loading()) {
+              @for (i of [1, 2, 3]; track i) { <tr><td colspan="9"><app-skeleton [rows]="1" /></td></tr> }
+            } @else {
+              <tr><td colspan="9" class="empty-row">{{ emptyText() }}</td></tr>
+            }
           }
         </tbody>
       </table>
@@ -97,6 +102,13 @@ export class Queue {
       this.notifications.changed();
       this.load();
     });
+  }
+
+  protected emptyText(): string {
+    if (this.search || this.status || this.market) return 'No claims match these filters.';
+    return this.tab() === 'unassigned' ? 'Nothing waiting to be picked up. The queue is clear.'
+      : this.tab() === 'me' ? "You don't have any open claims. Pick one up from Unassigned."
+      : 'No open claims.';
   }
 
   protected setTab(tab: Tab): void {
