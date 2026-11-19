@@ -96,6 +96,9 @@ import { Timeline } from '../../shared/timeline';
             <button class="btn primary" [disabled]="busy()" (click)="run(api.assign(id()))">Assign to me</button>
           } @else if (!mine()) {
             <p>Assigned to <strong>{{ c.summary.assignedOfficerName }}</strong>.</p>
+            @if (auth.isManager()) {
+              <p class="hint">As a manager you can act on this claim directly. It stays with {{ c.summary.assignedOfficerName }}, and the history shows it was you.</p>
+            }
           }
 
           @if (auth.isManager() && isOpen()) {
@@ -109,7 +112,7 @@ import { Timeline } from '../../shared/timeline';
             </div>
           }
 
-          @if (mine() && isOpen()) {
+          @if (canAct() && isOpen()) {
             @if (c.summary.status === 'Approved') {
               <p>Approved for {{ money(c.summary.approvedAmount, cur()) }}. Release payment to close the claim.</p>
               <button class="btn good" [disabled]="busy()" (click)="run(api.settle(id()))">Settle claim</button>
@@ -192,6 +195,8 @@ export class StaffClaim {
 
   protected cur = computed(() => this.claim()?.summary.currency ?? '');
   protected mine = computed(() => this.claim()?.summary.assignedOfficerId === this.auth.user()?.id);
+  /** Managers can work any assigned claim without taking it over; officers only their own. */
+  protected canAct = computed(() => this.mine() || (this.auth.isManager() && !!this.claim()?.summary.assignedOfficerId));
   protected isOpen = computed(() => {
     const s = this.claim()?.summary.status;
     return s !== 'Settled' && s !== 'Rejected';

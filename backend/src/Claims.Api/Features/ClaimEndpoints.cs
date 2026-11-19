@@ -41,15 +41,15 @@ public static class ClaimEndpoints
 
         staff.MapPost("/assign", AssignClaim);
         staff.MapPost("/reserve", async (Guid id, ReserveRequest req, ClaimsPrincipal user, ClaimsDbContext db, TimeProvider clock) =>
-            await ActWithPolicy(id, user, db, clock, (c, p, now) => c.SetReserve(user.UserId(), req.Amount, p, now)));
+            await ActWithPolicy(id, user, db, clock, (c, p, now) => c.SetReserve(user.UserId(), req.Amount, p, now, user.IsManager())));
         staff.MapPost("/info-requests", (Guid id, InfoRequestRequest req, ClaimsPrincipal user, ClaimsDbContext db, TimeProvider clock) =>
-            Act(id, user, db, clock, (c, now) => c.RequestInformation(user.UserId(), req.Question, now)));
+            Act(id, user, db, clock, (c, now) => c.RequestInformation(user.UserId(), req.Question, now, user.IsManager())));
         staff.MapPost("/approve", (Guid id, ApproveRequest req, ClaimsPrincipal user, ClaimsDbContext db, TimeProvider clock) =>
-            ActWithPolicy(id, user, db, clock, (c, p, now) => c.Approve(user.UserId(), req.Amount, p, req.Reason, now)));
+            ActWithPolicy(id, user, db, clock, (c, p, now) => c.Approve(user.UserId(), req.Amount, p, req.Reason, now, user.IsManager())));
         staff.MapPost("/reject", (Guid id, RejectRequest req, ClaimsPrincipal user, ClaimsDbContext db, TimeProvider clock) =>
-            Act(id, user, db, clock, (c, now) => c.Reject(user.UserId(), req.Reason, now)));
+            Act(id, user, db, clock, (c, now) => c.Reject(user.UserId(), req.Reason, now, user.IsManager())));
         staff.MapPost("/settle", (Guid id, ClaimsPrincipal user, ClaimsDbContext db, TimeProvider clock) =>
-            Act(id, user, db, clock, (c, now) => c.Settle(user.UserId(), now)));
+            Act(id, user, db, clock, (c, now) => c.Settle(user.UserId(), now, user.IsManager())));
         staff.MapPost("/notes", (Guid id, NoteRequest req, ClaimsPrincipal user, ClaimsDbContext db, TimeProvider clock) =>
             Act(id, user, db, clock, (c, now) => c.AddNote(user.UserId(), req.Text, now)));
     }

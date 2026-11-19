@@ -34,9 +34,9 @@ Keep both terminals running. If the login page says it cannot reach the API, the
 | Mei Ling Wong | mei@example.com | Claimant (HK, home) |
 | Daniel Lim | daniel@chubb.test | Claims officer |
 | Priya Nair | priya@chubb.test | Claims officer |
-| Sarah Chen | sarah@chubb.test | Manager (can reassign) |
+| Sarah Chen | sarah@chubb.test | Manager (can reassign and act on any claim) |
 
-**Tests:** `cd backend && dotnet test`. This runs 39 tests: domain rules, plus API integration tests against in-memory SQLite (including file uploads).
+**Tests:** `cd backend && dotnet test`. This runs 42 tests: domain rules, plus API integration tests against in-memory SQLite (including file uploads).
 
 ### Using real Kafka (optional)
 
@@ -115,6 +115,7 @@ Submitted ──assign──▶ UnderReview ──approve──▶ Approved ─�
 The `Claim` aggregate enforces these rules, so no endpoint can get around them:
 - Transitions follow the diagram above. Anything else returns **409**.
 - Only the **assigned** officer can work a claim. Officers pick up work for themselves; only a manager can assign to someone else.
+- A manager can also act on any assigned claim directly, for example to cover an absent officer. The claim keeps its owner, and the audit trail records the manager as the actor.
 - A claim can't be approved while any information request is still open.
 - The approved amount can't exceed claimed amount minus excess, capped at the coverage limit. A reserve can't exceed the limit.
 - Rejection needs a reason, which the claimant sees.

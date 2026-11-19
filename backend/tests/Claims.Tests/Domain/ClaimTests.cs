@@ -85,6 +85,29 @@ public class ClaimTests
     }
 
     [Fact]
+    public void Manager_can_act_on_another_officers_claim_without_taking_it_over()
+    {
+        var policy = MotorPolicy();
+        var claim = AssignedClaim(policy);
+        var manager = Guid.NewGuid();
+
+        claim.Approve(manager, 1_000m, policy, "Signed off by manager", Now, asManager: true);
+
+        Assert.Equal(ClaimStatus.Approved, claim.Status);
+        Assert.Equal(Officer, claim.AssignedOfficerId);
+        Assert.Contains(claim.Activities, a => a.Action == "StatusChanged" && a.ActorId == manager);
+    }
+
+    [Fact]
+    public void Manager_still_needs_the_claim_assigned_first()
+    {
+        var policy = MotorPolicy();
+        var claim = NewClaim(policy);
+        var ex = Assert.Throws<DomainException>(() => claim.SetReserve(Guid.NewGuid(), 100m, policy, Now, asManager: true));
+        Assert.Equal(DomainErrorKind.Conflict, ex.Kind);
+    }
+
+    [Fact]
     public void Information_round_trip_returns_claim_to_review_only_when_all_answered()
     {
         var claim = AssignedClaim();

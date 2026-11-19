@@ -110,9 +110,9 @@ public class Claim
             Touch(now);
     }
 
-    public void SetReserve(Guid officerId, decimal amount, Policy policy, DateTime now)
+    public void SetReserve(Guid officerId, decimal amount, Policy policy, DateTime now, bool asManager = false)
     {
-        EnsureAssignedTo(officerId);
+        EnsureCanWork(officerId, asManager);
         EnsureOpen();
         if (Status == ClaimStatus.Approved)
             throw DomainException.Conflict("Reserve is fixed once a claim is approved.");
@@ -127,9 +127,9 @@ public class Claim
         Touch(now);
     }
 
-    public InformationRequest RequestInformation(Guid officerId, string question, DateTime now)
+    public InformationRequest RequestInformation(Guid officerId, string question, DateTime now, bool asManager = false)
     {
-        EnsureAssignedTo(officerId);
+        EnsureCanWork(officerId, asManager);
         if (string.IsNullOrWhiteSpace(question))
             throw new DomainException("Question is required.");
         if (Status is not (ClaimStatus.UnderReview or ClaimStatus.AwaitingInformation))
@@ -171,9 +171,9 @@ public class Claim
             Touch(now);
     }
 
-    public void Approve(Guid officerId, decimal amount, Policy policy, string? reason, DateTime now)
+    public void Approve(Guid officerId, decimal amount, Policy policy, string? reason, DateTime now, bool asManager = false)
     {
-        EnsureAssignedTo(officerId);
+        EnsureCanWork(officerId, asManager);
         var max = policy.MaxPayable(ClaimedAmount);
         if (amount <= 0 || amount > max)
             throw new DomainException($"Approved amount must be greater than 0 and at most {max:N2} (claimed amount less excess, capped at limit).");
@@ -184,9 +184,9 @@ public class Claim
         DecisionReason = reason;
     }
 
-    public void Reject(Guid officerId, string reason, DateTime now)
+    public void Reject(Guid officerId, string reason, DateTime now, bool asManager = false)
     {
-        EnsureAssignedTo(officerId);
+        EnsureCanWork(officerId, asManager);
         if (string.IsNullOrWhiteSpace(reason))
             throw new DomainException("A reason is required to reject a claim.");
 
@@ -196,9 +196,9 @@ public class Claim
         ClosedAt = now;
     }
 
-    public void Settle(Guid officerId, DateTime now)
+    public void Settle(Guid officerId, DateTime now, bool asManager = false)
     {
-        EnsureAssignedTo(officerId);
+        EnsureCanWork(officerId, asManager);
         TransitionTo(ClaimStatus.Settled, officerId, null, now);
         SettledAmount = ApprovedAmount;
         ReserveAmount = 0;
@@ -264,11 +264,16 @@ public class Claim
         Raise(new ClaimStatusChanged { ClaimId = Id, ClaimNumber = ClaimNumber, ClaimantId = ClaimantId, OccurredAt = now, From = from, To = to, Reason = reason });
     }
 
-    private void EnsureAssignedTo(Guid officerId)
+    /// <summary>
+    /// The assigned officer works the claim. A manager can also act on it directly (cover for absence,
+    /// escalations) without taking it over, so the claim keeps its owner. The audit trail records who acted.
+    /// Every claim still needs an owner first, so managers can't skip the pick-up step.
+    /// </summary>
+    private void EnsureCanWork(Guid actorId, bool asManager)
     {
         if (AssignedOfficerId is null)
             throw DomainException.Conflict("Claim must be assigned before it can be worked on.");
-        if (AssignedOfficerId != officerId)
+        if (AssignedOfficerId != actorId && !asManager)
             throw DomainException.Forbidden("Claim is assigned to another officer.");
     }
 

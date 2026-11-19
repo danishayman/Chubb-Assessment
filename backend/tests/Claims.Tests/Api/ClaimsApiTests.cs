@@ -150,6 +150,25 @@ public class ClaimsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Manager_can_act_on_a_claim_another_officer_owns()
+    {
+        var claimant = await factory.LoginAs("aisha@example.com");
+        var daniel = await factory.LoginAs("daniel@chubb.test");
+        var priya = await factory.LoginAs("priya@chubb.test");
+        var manager = await factory.LoginAs("sarah@chubb.test");
+        var id = (await Submit(claimant)).Summary.Id;
+        var assigned = await Read<ClaimDetailDto>(await daniel.PostAsJsonAsync($"/api/claims/{id}/assign", new AssignRequest(null), Json));
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await priya.PostAsJsonAsync($"/api/claims/{id}/reject", new RejectRequest("Not covered"), Json)).StatusCode);
+
+        var rejected = await Read<ClaimDetailDto>(await manager.PostAsJsonAsync($"/api/claims/{id}/reject", new RejectRequest("Not covered"), Json));
+        Assert.Equal(ClaimStatus.Rejected, rejected.Summary.Status);
+        Assert.Equal(assigned.Summary.AssignedOfficerId, rejected.Summary.AssignedOfficerId);
+        Assert.Contains(rejected.Timeline, t => t.Action == "StatusChanged" && t.Actor == "Sarah Chen");
+    }
+
+    [Fact]
     public async Task Exposure_reflects_new_claim_reserve()
     {
         var claimant = await factory.LoginAs("raj@example.com");
