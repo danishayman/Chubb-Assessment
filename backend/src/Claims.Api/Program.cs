@@ -36,6 +36,8 @@ app.MapOpenApi();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapAuth();
 app.MapClaims();
+app.MapNotifications();
+app.MapDashboard();
 
 app.Run();
 

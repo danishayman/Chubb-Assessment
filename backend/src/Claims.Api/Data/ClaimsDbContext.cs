@@ -25,7 +25,12 @@ public class ClaimsDbContext(DbContextOptions<ClaimsDbContext> options) : DbCont
     {
         // Store enums as text so the database is readable without the code.
         builder.Properties<Enum>().HaveConversion<string>().HaveMaxLength(32);
+        // SQLite has no timezone-aware type; everything is stored as UTC, so mark it as UTC on the way out.
+        builder.Properties<DateTime>().HaveConversion<UtcConverter>();
     }
+
+    private class UtcConverter() : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>(
+        v => v.ToUniversalTime(), v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
 
     protected override void OnModelCreating(ModelBuilder b)
     {
