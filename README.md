@@ -23,6 +23,8 @@ npm start
 
 The API creates `claims.db` (SQLite), applies migrations and seeds demo data on first start. Delete the file to reset.
 
+Keep both terminals running. If the login page says it cannot reach the API, the backend isn't running on port 5177.
+
 **Demo accounts.** The password for all of them is `Password123!`. The login page also has one-click buttons.
 
 | Who | Email | Role |

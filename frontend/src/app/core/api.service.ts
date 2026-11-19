@@ -57,7 +57,8 @@ export function errorMessage(err: unknown): string {
     const p = err.error as Problem | null;
     if (p?.detail) return p.detail;
     if (p?.title) return p.title;
-    if (err.status === 0) return 'Cannot reach the server. Is the API running?';
+    // Status 0, or a bare 5xx with no ProblemDetails body, means the dev proxy couldn't reach the API at all.
+    if (err.status === 0 || err.status >= 500) return 'Cannot reach the API. Make sure it is running on port 5177.';
     return `Request failed (${err.status}).`;
   }
   return 'Something went wrong.';
