@@ -108,3 +108,8 @@ Some entries are calls the AI made by itself. For each one I've noted whether I 
   - showed the action panel to managers, with a note saying whose claim it is
   - added a domain test and an API test. Another officer still gets 403, and the history shows the manager's name.
 - **Checked in the browser:** signed in as the manager and changed the reserve on another officer's claim. The claim stayed with that officer, and the history shows the manager's name.
+
+## 12. Before submitting
+- **Removed the brief** from the repo and from the git history. It's Chubb's document, not part of my submission.
+- **Fresh-clone check:** cloned the repo into an empty folder and followed the README as written. `dotnet test` passed all 42 tests, `npm install` and the Angular build succeeded, and the API created and seeded a new database on first start, with Swagger up.
+- **Still not verified:** Kafka against a live broker (no Docker on this PC).
